@@ -1,8 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
 import re
+import os
 
-SUBSTITUTIONS_FILE = "substitutions.txt"
+# Dynamically determine the path to the substitutions file
+script_dir = os.path.dirname(os.path.abspath(__file__))
+SUBSTITUTIONS_FILE = os.path.join(script_dir, "substitutions.txt")
 
 def load_substitutions(file_path):
     """Load substitutions from a file into a dictionary."""
@@ -39,8 +42,8 @@ def replace_text():
         return match_case(replacement_word, original_word)
     
     # Create a regex pattern for all substitution words (case insensitive)
-    pattern = re.compile(r'\b(' + '|'.join(map(re.escape, SUBSTITUTIONS.keys())) + r')\b', re.IGNORECASE)
-    modified_text = pattern.sub(replacement_function, input_text)
+    pattern = re.compile('|'.join(map(re.escape, SUBSTITUTIONS.keys())), re.IGNORECASE)
+    modified_text = pattern.sub(replacement_function, input_text, 0)
     
     text_box.delete("1.0", tk.END)
     text_box.insert(tk.END, modified_text)
