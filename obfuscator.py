@@ -3,6 +3,7 @@ from tkinter import messagebox
 import re
 import os
 import ipaddress
+import base64
 
 # Dynamically determine the path to the substitutions file
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -55,12 +56,14 @@ def deobfuscate_ip(ip):
         return ip
 
 def obfuscate_password(password):
-    """Simple reversible obfuscation for passwords."""
-    return password[::-1]  # Reverse the password for obfuscation
+    """More complex reversible obfuscation for passwords."""
+    encoded = base64.b64encode(password.encode()).decode()
+    return encoded[::-1]  # Reverse the Base64 encoded string
 
 def deobfuscate_password(password):
     """Reverse obfuscation for passwords."""
-    return password[::-1]  # Reverse it back
+    decoded = base64.b64decode(password[::-1].encode()).decode()
+    return decoded
 
 def replace_text(input_text, mapping, obfuscate=True):
     """Replace words in the input text using the given mapping and obfuscate IPs and passwords."""
@@ -70,11 +73,11 @@ def replace_text(input_text, mapping, obfuscate=True):
             return match_case(mapping[original_word.lower()], original_word)
         elif re.match(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', original_word):
             return obfuscate_ip(original_word) if obfuscate else deobfuscate_ip(original_word)
-        elif re.match(r'(PASSWORD:|\$password=|\$pass=)["\']?([^"\']+)["\']?', original_word, re.IGNORECASE):
+        elif re.match(r'(PASSWORD:|POSTGRES_PASSWORD:|\$password=|\$pass=|\bpassword\b)["\']?([^"\']+)["\']?', original_word, re.IGNORECASE):
             return re.sub(r'(["\']?)([^"\']+)(["\']?)$', lambda m: m.group(1) + (obfuscate_password(m.group(2)) if obfuscate else deobfuscate_password(m.group(2))) + m.group(3), original_word)
         return original_word
     
-    pattern = re.compile('|'.join(map(re.escape, mapping.keys())) + r'|\b(?:\d{1,3}\.){3}\d{1,3}\b|(?:PASSWORD:|\$password=|\$pass=)["\']?([^"\']+)["\']?', re.IGNORECASE)
+    pattern = re.compile('|'.join(map(re.escape, mapping.keys())) + r'|\b(?:\d{1,3}\.){3}\d{1,3}\b|(?:PASSWORD:|POSTGRES_PASSWORD:|\$password=|\$pass=|\bpassword\b)["\']?([^"\']+)["\']?', re.IGNORECASE)
     return pattern.sub(replacement_function, input_text)
 
 def update_text(event, source, target, mapping, obfuscate):
