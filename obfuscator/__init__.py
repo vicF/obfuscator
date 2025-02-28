@@ -23,7 +23,9 @@ def load_substitutions(file_path):
     return substitutions
 
 SUBSTITUTIONS = load_substitutions(SUBSTITUTIONS_FILE)
+print("SUBSTITUTIONS:", SUBSTITUTIONS)  # Debug
 REVERSE_SUBSTITUTIONS = {v.lower(): k for k, v in SUBSTITUTIONS.items()}
+print("REVERSE_SUBSTITUTIONS:", REVERSE_SUBSTITUTIONS)  # Debug
 
 def match_case(replacement, original):
     """Adjust the replacement word to match the case of the original word."""
@@ -39,9 +41,9 @@ def obfuscate_ip(ip):
     try:
         parsed_ip = ipaddress.ip_address(ip)
         if parsed_ip.is_private or ip in {"127.0.0.1", "0.0.0.0"}:
-            return ip  # Keep special/private IPs unchanged
+            return ip
         octets = ip.split(".")
-        obfuscated_octets = [str((int(o) + 100) % 255) for o in octets]  # Shift octets
+        obfuscated_octets = [str((int(o) + 100) % 255) for o in octets]
         return ".".join(obfuscated_octets)
     except ValueError:
         return ip
@@ -59,7 +61,7 @@ def obfuscate_password(password):
     """More complex reversible obfuscation for passwords."""
     rotated = password[::-1]
     encoded = base64.b64encode(rotated.encode()).decode()
-    return base64.b64encode(encoded[::-1].encode()).decode()  # Double encoding for complexity
+    return base64.b64encode(encoded[::-1].encode()).decode()
 
 def deobfuscate_password(password):
     """Reverse obfuscation for passwords."""
@@ -67,26 +69,41 @@ def deobfuscate_password(password):
     return base64.b64decode(decoded.encode()).decode()[::-1]
 
 def replace_text(input_text, mapping, obfuscate=True):
-    """Replace words in the input text using the given mapping and obfuscate IPs and passwords."""
+    """Replace substrings in the input text using the given mapping and obfuscate IPs and passwords."""
     password_patterns = re.compile(
         r'(?i)([\w\-]*_PASSWORD|[\w\-]*_PASS|password|pass|pwd|secret|credential|key)\s*[:=]\s*(\"|\'|)([^\"\'\n]+)\2'
     )
     
-    def replacement_function(match):
+    def password_replacement(match):
         key, quote, original_value = match.groups()
         obfuscated_value = obfuscate_password(original_value) if obfuscate else deobfuscate_password(original_value)
         return f"{key}: {quote}{obfuscated_value}{quote}"
     
-    obfuscated_text = password_patterns.sub(replacement_function, input_text)
+    modified_text = password_patterns.sub(password_replacement, input_text)
     
-    def ip_replacement_function(match):
+    def ip_replacement(match):
         original_word = match.group()
         return obfuscate_ip(original_word) if obfuscate else deobfuscate_ip(original_word)
     
     ip_pattern = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
-    obfuscated_text = ip_pattern.sub(ip_replacement_function, obfuscated_text)
+    modified_text = ip_pattern.sub(ip_replacement, modified_text)
     
-    return obfuscated_text
+    result_text = modified_text
+    for original, replacement in mapping.items():
+        temp_text = result_text.lower()
+        if original in temp_text:
+            start_pos = 0
+            while True:
+                pos = temp_text.find(original, start_pos)
+                if pos == -1:
+                    break
+                orig_substr = result_text[pos:pos + len(original)]
+                new_substr = match_case(replacement, orig_substr)
+                result_text = result_text[:pos] + new_substr + result_text[pos + len(original):]
+                temp_text = result_text.lower()
+                start_pos = pos + len(new_substr)
+    
+    return result_text
 
 def update_text(event, source, target, mapping, obfuscate):
     """Update the target text box based on input in the source text box."""
@@ -107,7 +124,7 @@ def copy_to_clipboard(text):
 def show_status(message):
     """Show a temporary status message."""
     status_label.config(text=message)
-    root.after(2000, lambda: status_label.config(text=""))  # Clear message after 2 seconds
+    root.after(2000, lambda: status_label.config(text=""))
 
 def clear_text():
     """Clear both text areas."""
@@ -115,33 +132,26 @@ def clear_text():
     right_text.delete("1.0", tk.END)
     show_status("Text cleared")
 
-# Create the main application window
 root = tk.Tk()
 root.title("Bidirectional Text Substitution Tool")
 
-# Create a frame to hold both text boxes
 frame = tk.Frame(root)
 frame.pack(padx=10, pady=10)
 
-# Create the left text box
 left_text = tk.Text(frame, wrap="word", height=10, width=40)
 left_text.pack(side=tk.LEFT, padx=5)
 left_text.bind("<KeyRelease>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
 left_text.bind("<Control-v>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
 
-# Create the right text box
 right_text = tk.Text(frame, wrap="word", height=10, width=40)
 right_text.pack(side=tk.RIGHT, padx=5)
 right_text.bind("<KeyRelease>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
 right_text.bind("<Control-v>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
 
-# Create a status label
 status_label = tk.Label(root, text="", fg="green")
 status_label.pack(pady=5)
 
-# Create a Clear button
 clear_button = tk.Button(root, text="Clear", command=clear_text)
 clear_button.pack(pady=5)
 
-# Run the application
 root.mainloop()

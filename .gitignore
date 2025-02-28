@@ -1,1 +1,4 @@
 substitutions.txt
+obfuscator/__pycache__/
+tests/__pycache__/
+venv/
