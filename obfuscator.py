@@ -54,17 +54,27 @@ def deobfuscate_ip(ip):
     except ValueError:
         return ip
 
+def obfuscate_password(password):
+    """Simple reversible obfuscation for passwords."""
+    return password[::-1]  # Reverse the password for obfuscation
+
+def deobfuscate_password(password):
+    """Reverse obfuscation for passwords."""
+    return password[::-1]  # Reverse it back
+
 def replace_text(input_text, mapping, obfuscate=True):
-    """Replace words in the input text using the given mapping and obfuscate IPs."""
+    """Replace words in the input text using the given mapping and obfuscate IPs and passwords."""
     def replacement_function(match):
         original_word = match.group()
         if original_word in mapping:
             return match_case(mapping[original_word.lower()], original_word)
         elif re.match(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', original_word):
             return obfuscate_ip(original_word) if obfuscate else deobfuscate_ip(original_word)
+        elif re.match(r'(PASSWORD:|\$password=|\$pass=)["\']?([^"\']+)["\']?', original_word, re.IGNORECASE):
+            return re.sub(r'(["\']?)([^"\']+)(["\']?)$', lambda m: m.group(1) + (obfuscate_password(m.group(2)) if obfuscate else deobfuscate_password(m.group(2))) + m.group(3), original_word)
         return original_word
     
-    pattern = re.compile('|'.join(map(re.escape, mapping.keys())) + r'|\b(?:\d{1,3}\.){3}\d{1,3}\b', re.IGNORECASE)
+    pattern = re.compile('|'.join(map(re.escape, mapping.keys())) + r'|\b(?:\d{1,3}\.){3}\d{1,3}\b|(?:PASSWORD:|\$password=|\$pass=)["\']?([^"\']+)["\']?', re.IGNORECASE)
     return pattern.sub(replacement_function, input_text)
 
 def update_text(event, source, target, mapping, obfuscate):
