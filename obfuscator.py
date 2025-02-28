@@ -20,6 +20,9 @@ def load_substitutions(file_path):
         messagebox.showerror("Error", f"File '{file_path}' not found.")
     return substitutions
 
+SUBSTITUTIONS = load_substitutions(SUBSTITUTIONS_FILE)
+REVERSE_SUBSTITUTIONS = {v.lower(): k for k, v in SUBSTITUTIONS.items()}
+
 def match_case(replacement, original):
     """Adjust the replacement word to match the case of the original word."""
     if original.isupper():
@@ -29,90 +32,60 @@ def match_case(replacement, original):
     else:
         return replacement.lower()
 
-def replace_text(event=None):
-    """Replace predefined words in the text box with substitutions, case-insensitive."""
-    if getattr(replace_text, "in_progress", False):  # Prevent recursive updates
-        return
+def replace_text(input_text, mapping):
+    """Replace words in the input text using the given mapping."""
+    def replacement_function(match):
+        original_word = match.group()
+        replacement_word = mapping[original_word.lower()]
+        return match_case(replacement_word, original_word)
     
-    # Check if Ctrl+A is pressed and skip replacement
-    if event and event.state & 0x4 and event.keysym == "a":  # Ctrl+A
-        return
-    
-    replace_text.in_progress = True  # Set flag to indicate ongoing replacement
-    try:
-        input_text = text_box.get("1.0", tk.END)
-        if not SUBSTITUTIONS:
-            return  # No substitutions loaded
-        
-        cursor_position = text_box.index(tk.INSERT)  # Save current cursor position
-        cursor_line, cursor_col = map(int, cursor_position.split('.'))
-        
-        def replacement_function(match):
-            original_word = match.group()
-            replacement_word = SUBSTITUTIONS[original_word.lower()]
-            return match_case(replacement_word, original_word)
-        
-        # Create a regex pattern for all substitution words (case insensitive)
-        pattern = re.compile('|'.join(map(re.escape, SUBSTITUTIONS.keys())), re.IGNORECASE)
-        modified_text = pattern.sub(replacement_function, input_text)
-        
-        # Update the text box content
-        text_box.delete("1.0", tk.END)
-        text_box.insert(tk.END, modified_text)
-        
-        # Adjust cursor position
-        new_position_index = calculate_new_cursor_position(input_text, modified_text, cursor_line, cursor_col)
-        text_box.mark_set(tk.INSERT, new_position_index)
-    finally:
-        replace_text.in_progress = False  # Reset flag
+    pattern = re.compile('|'.join(map(re.escape, mapping.keys())), re.IGNORECASE)
+    return pattern.sub(replacement_function, input_text)
 
-def calculate_new_cursor_position(original_text, modified_text, line, col):
-    """Calculate new cursor position after text modifications."""
-    original_lines = original_text.splitlines()
-    modified_lines = modified_text.splitlines()
-    
-    # Adjust for current line
-    if line <= len(original_lines) and line <= len(modified_lines):
-        original_line_text = original_lines[line - 1][:col]
-        modified_line_text = modified_lines[line - 1]
-        
-        # Map the cursor's column to the new text
-        prefix = modified_line_text[:len(original_line_text)]
-        col = len(prefix)  # Update column to match the new length
-    
-    # Return updated cursor position
-    return f"{line}.{col}"
+def update_text(event, source, target, mapping):
+    """Update the target text box based on input in the source text box."""
+    input_text = source.get("1.0", tk.END).strip()
+    if input_text:
+        modified_text = replace_text(input_text, mapping)
+        target.delete("1.0", tk.END)
+        target.insert(tk.END, modified_text)
+        copy_to_clipboard(modified_text)
+        show_status("Text copied to clipboard")
 
-def copy_to_clipboard():
-    """Copy the modified text to the clipboard."""
-    modified_text = text_box.get("1.0", tk.END).strip()
-    if not modified_text:
-        messagebox.showinfo("Info", "Nothing to copy to clipboard!")
-        return
+def copy_to_clipboard(text):
+    """Copy text to clipboard."""
     root.clipboard_clear()
-    root.clipboard_append(modified_text)
-    root.update()  # Required to update the clipboard
-    messagebox.showinfo("Info", "Text copied to clipboard!")
+    root.clipboard_append(text)
+    root.update()
 
-# Load substitutions from the file
-SUBSTITUTIONS = load_substitutions(SUBSTITUTIONS_FILE)
+def show_status(message):
+    """Show a temporary status message."""
+    status_label.config(text=message)
+    root.after(2000, lambda: status_label.config(text=""))  # Clear message after 2 seconds
 
 # Create the main application window
 root = tk.Tk()
-root.title("Text Substitution Tool")
+root.title("Bidirectional Text Substitution Tool")
 
-# Create a text box
-text_box = tk.Text(root, wrap="word", height=10, width=50)
-text_box.pack(padx=10, pady=10)
+# Create a frame to hold both text boxes
+frame = tk.Frame(root)
+frame.pack(padx=10, pady=10)
 
-# Bind the replace_text function to text input events
-text_box.bind("<KeyRelease>", replace_text)  # Trigger on key release
-text_box.bind("<Control-v>", replace_text)  # Trigger on paste (Ctrl+V)
-text_box.bind("<Control-a>", lambda event: "break")  # Prevent immediate modification on Ctrl+A
+# Create the left text box
+left_text = tk.Text(frame, wrap="word", height=10, width=40)
+left_text.pack(side=tk.LEFT, padx=5)
+left_text.bind("<KeyRelease>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS))
+left_text.bind("<Control-v>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS))
 
-# Create the "Copy" button
-copy_button = tk.Button(root, text="Copy", command=copy_to_clipboard)
-copy_button.pack(pady=5)
+# Create the right text box
+right_text = tk.Text(frame, wrap="word", height=10, width=40)
+right_text.pack(side=tk.RIGHT, padx=5)
+right_text.bind("<KeyRelease>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS))
+right_text.bind("<Control-v>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS))
+
+# Create a status label
+status_label = tk.Label(root, text="", fg="green")
+status_label.pack(pady=5)
 
 # Run the application
 root.mainloop()
