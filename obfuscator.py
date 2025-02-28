@@ -57,28 +57,36 @@ def deobfuscate_ip(ip):
 
 def obfuscate_password(password):
     """More complex reversible obfuscation for passwords."""
-    encoded = base64.b64encode(password.encode()).decode()
-    return encoded[::-1]  # Reverse the Base64 encoded string
+    rotated = password[::-1]
+    encoded = base64.b64encode(rotated.encode()).decode()
+    return base64.b64encode(encoded[::-1].encode()).decode()  # Double encoding for complexity
 
 def deobfuscate_password(password):
     """Reverse obfuscation for passwords."""
-    decoded = base64.b64decode(password[::-1].encode()).decode()
-    return decoded
+    decoded = base64.b64decode(password.encode()).decode()[::-1]
+    return base64.b64decode(decoded.encode()).decode()[::-1]
 
 def replace_text(input_text, mapping, obfuscate=True):
     """Replace words in the input text using the given mapping and obfuscate IPs and passwords."""
-    def replacement_function(match):
-        original_word = match.group()
-        if original_word in mapping:
-            return match_case(mapping[original_word.lower()], original_word)
-        elif re.match(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', original_word):
-            return obfuscate_ip(original_word) if obfuscate else deobfuscate_ip(original_word)
-        elif re.match(r'(PASSWORD:|POSTGRES_PASSWORD:|\$password=|\$pass=|\bpassword\b)["\']?([^"\']+)["\']?', original_word, re.IGNORECASE):
-            return re.sub(r'(["\']?)([^"\']+)(["\']?)$', lambda m: m.group(1) + (obfuscate_password(m.group(2)) if obfuscate else deobfuscate_password(m.group(2))) + m.group(3), original_word)
-        return original_word
+    password_patterns = re.compile(
+        r'(?i)([\w\-]*_PASSWORD|[\w\-]*_PASS|password|pass|pwd|secret|credential|key)\s*[:=]\s*(\"|\'|)([^\"\'\n]+)\2'
+    )
     
-    pattern = re.compile('|'.join(map(re.escape, mapping.keys())) + r'|\b(?:\d{1,3}\.){3}\d{1,3}\b|(?:PASSWORD:|POSTGRES_PASSWORD:|\$password=|\$pass=|\bpassword\b)["\']?([^"\']+)["\']?', re.IGNORECASE)
-    return pattern.sub(replacement_function, input_text)
+    def replacement_function(match):
+        key, quote, original_value = match.groups()
+        obfuscated_value = obfuscate_password(original_value) if obfuscate else deobfuscate_password(original_value)
+        return f"{key}: {quote}{obfuscated_value}{quote}"
+    
+    obfuscated_text = password_patterns.sub(replacement_function, input_text)
+    
+    def ip_replacement_function(match):
+        original_word = match.group()
+        return obfuscate_ip(original_word) if obfuscate else deobfuscate_ip(original_word)
+    
+    ip_pattern = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
+    obfuscated_text = ip_pattern.sub(ip_replacement_function, obfuscated_text)
+    
+    return obfuscated_text
 
 def update_text(event, source, target, mapping, obfuscate):
     """Update the target text box based on input in the source text box."""
