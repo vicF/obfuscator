@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import re
 import os
+import ipaddress
 
 # Dynamically determine the path to the substitutions file
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -32,21 +33,45 @@ def match_case(replacement, original):
     else:
         return replacement.lower()
 
-def replace_text(input_text, mapping):
-    """Replace words in the input text using the given mapping."""
+def obfuscate_ip(ip):
+    """Obfuscate an IP address while keeping it valid."""
+    try:
+        parsed_ip = ipaddress.ip_address(ip)
+        if parsed_ip.is_private or ip in {"127.0.0.1", "0.0.0.0"}:
+            return ip  # Keep special/private IPs unchanged
+        octets = ip.split(".")
+        obfuscated_octets = [str((int(o) + 100) % 255) for o in octets]  # Shift octets
+        return ".".join(obfuscated_octets)
+    except ValueError:
+        return ip
+
+def deobfuscate_ip(ip):
+    """Reverse obfuscation of an IP address."""
+    try:
+        octets = ip.split(".")
+        deobfuscated_octets = [str((int(o) - 100) % 255) for o in octets]
+        return ".".join(deobfuscated_octets)
+    except ValueError:
+        return ip
+
+def replace_text(input_text, mapping, obfuscate=True):
+    """Replace words in the input text using the given mapping and obfuscate IPs."""
     def replacement_function(match):
         original_word = match.group()
-        replacement_word = mapping[original_word.lower()]
-        return match_case(replacement_word, original_word)
+        if original_word in mapping:
+            return match_case(mapping[original_word.lower()], original_word)
+        elif re.match(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', original_word):
+            return obfuscate_ip(original_word) if obfuscate else deobfuscate_ip(original_word)
+        return original_word
     
-    pattern = re.compile('|'.join(map(re.escape, mapping.keys())), re.IGNORECASE)
+    pattern = re.compile('|'.join(map(re.escape, mapping.keys())) + r'|\b(?:\d{1,3}\.){3}\d{1,3}\b', re.IGNORECASE)
     return pattern.sub(replacement_function, input_text)
 
-def update_text(event, source, target, mapping):
+def update_text(event, source, target, mapping, obfuscate):
     """Update the target text box based on input in the source text box."""
     input_text = source.get("1.0", tk.END).strip()
     if input_text:
-        modified_text = replace_text(input_text, mapping)
+        modified_text = replace_text(input_text, mapping, obfuscate)
         target.delete("1.0", tk.END)
         target.insert(tk.END, modified_text)
         copy_to_clipboard(modified_text)
@@ -80,14 +105,14 @@ frame.pack(padx=10, pady=10)
 # Create the left text box
 left_text = tk.Text(frame, wrap="word", height=10, width=40)
 left_text.pack(side=tk.LEFT, padx=5)
-left_text.bind("<KeyRelease>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS))
-left_text.bind("<Control-v>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS))
+left_text.bind("<KeyRelease>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
+left_text.bind("<Control-v>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
 
 # Create the right text box
 right_text = tk.Text(frame, wrap="word", height=10, width=40)
 right_text.pack(side=tk.RIGHT, padx=5)
-right_text.bind("<KeyRelease>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS))
-right_text.bind("<Control-v>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS))
+right_text.bind("<KeyRelease>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
+right_text.bind("<Control-v>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
 
 # Create a status label
 status_label = tk.Label(root, text="", fg="green")
