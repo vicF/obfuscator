@@ -63,6 +63,12 @@ def show_status(message):
     status_label.config(text=message)
     root.after(2000, lambda: status_label.config(text=""))  # Clear message after 2 seconds
 
+def clear_text():
+    """Clear both text areas."""
+    left_text.delete("1.0", tk.END)
+    right_text.delete("1.0", tk.END)
+    show_status("Text cleared")
+
 # Create the main application window
 root = tk.Tk()
 root.title("Bidirectional Text Substitution Tool")
@@ -86,6 +92,10 @@ right_text.bind("<Control-v>", lambda event: update_text(event, right_text, left
 # Create a status label
 status_label = tk.Label(root, text="", fg="green")
 status_label.pack(pady=5)
+
+# Create a Clear button
+clear_button = tk.Button(root, text="Clear", command=clear_text)
+clear_button.pack(pady=5)
 
 # Run the application
 root.mainloop()
