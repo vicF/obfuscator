@@ -132,26 +132,27 @@ def clear_text():
     right_text.delete("1.0", tk.END)
     show_status("Text cleared")
 
-root = tk.Tk()
-root.title("Bidirectional Text Substitution Tool")
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.title("Bidirectional Text Substitution Tool")
 
-frame = tk.Frame(root)
-frame.pack(padx=10, pady=10)
+    frame = tk.Frame(root)
+    frame.pack(padx=10, pady=10)
 
-left_text = tk.Text(frame, wrap="word", height=10, width=40)
-left_text.pack(side=tk.LEFT, padx=5)
-left_text.bind("<KeyRelease>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
-left_text.bind("<Control-v>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
+    left_text = tk.Text(frame, wrap="word", height=10, width=40)
+    left_text.pack(side=tk.LEFT, padx=5)
+    left_text.bind("<KeyRelease>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
+    left_text.bind("<Control-v>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
 
-right_text = tk.Text(frame, wrap="word", height=10, width=40)
-right_text.pack(side=tk.RIGHT, padx=5)
-right_text.bind("<KeyRelease>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
-right_text.bind("<Control-v>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
+    right_text = tk.Text(frame, wrap="word", height=10, width=40)
+    right_text.pack(side=tk.RIGHT, padx=5)
+    right_text.bind("<KeyRelease>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
+    right_text.bind("<Control-v>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
 
-status_label = tk.Label(root, text="", fg="green")
-status_label.pack(pady=5)
+    status_label = tk.Label(root, text="", fg="green")
+    status_label.pack(pady=5)
 
-clear_button = tk.Button(root, text="Clear", command=clear_text)
-clear_button.pack(pady=5)
+    clear_button = tk.Button(root, text="Clear", command=clear_text)
+    clear_button.pack(pady=5)
 
-root.mainloop()
+    root.mainloop()
