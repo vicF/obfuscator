@@ -136,23 +136,38 @@ if __name__ == "__main__":
     root = tk.Tk()
     root.title("Bidirectional Text Substitution Tool")
 
-    frame = tk.Frame(root)
-    frame.pack(padx=10, pady=10)
+    # Set initial window size and minimum size
+    root.geometry("800x400")
+    root.minsize(400, 200)
 
-    left_text = tk.Text(frame, wrap="word", height=10, width=40)
-    left_text.pack(side=tk.LEFT, padx=5)
-    left_text.bind("<KeyRelease>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
-    left_text.bind("<Control-v>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
+    # Configure root grid layout
+    root.grid_columnconfigure(0, weight=1)
+    root.grid_rowconfigure(0, weight=1)
+    root.grid_rowconfigure(1, weight=0)  # The button row should not expand
 
-    right_text = tk.Text(frame, wrap="word", height=10, width=40)
-    right_text.pack(side=tk.RIGHT, padx=5)
-    right_text.bind("<KeyRelease>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
-    right_text.bind("<Control-v>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
+    # Frame for text areas
+    text_frame = tk.Frame(root)
+    text_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
-    status_label = tk.Label(root, text="", fg="green")
-    status_label.pack(pady=5)
+    # Configure grid layout for resizing
+    text_frame.grid_columnconfigure(0, weight=1)
+    text_frame.grid_columnconfigure(1, weight=1)
+    text_frame.grid_rowconfigure(0, weight=1)
 
-    clear_button = tk.Button(root, text="Clear", command=clear_text)
-    clear_button.pack(pady=5)
+    # Left text area
+    left_text = tk.Text(text_frame, wrap="word")
+    left_text.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+    # Right text area
+    right_text = tk.Text(text_frame, wrap="word")
+    right_text.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+
+    # Button frame (ensures button is always visible)
+    button_frame = tk.Frame(root)
+    button_frame.grid(row=1, column=0, sticky="ew", pady=5)
+
+    # Clear button inside the button frame
+    clear_button = tk.Button(button_frame, text="Clear", command=clear_text)
+    clear_button.pack()
 
     root.mainloop()
