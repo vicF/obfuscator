@@ -27,10 +27,17 @@ class TestObfuscator(unittest.TestCase):
                 "input_text": "127.0.0.1",
                 "expected_output": "127.0.0.1"
             },
+            {
+                "substitutions": {"foo": "bar", "baz": "qux"},
+                "input_text": "0.0.0.0",
+                "expected_output": "0.0.0.0"
+            },
          ]
     
     def strings_provider(self):
-        return ['11.23.44.55',           
+        return [
+            '11.23.44.55',  
+            'password: 678fsf7d6sf'         
          ]
     
     def test_text_transformation(self):
@@ -41,7 +48,7 @@ class TestObfuscator(unittest.TestCase):
             deobfuscated_text = replace_text(obfuscated_text, {v: k for k, v in case["substitutions"].items()}, obfuscate=False)
             self.assertEqual(deobfuscated_text, case["input_text"])
 
-    def test_text_ip(self):
+    def test_text_obfuscated(self):
         for text in self.strings_provider():
             obfuscated_text = replace_text(text, {}, obfuscate=True)
             self.assertNotEqual(obfuscated_text, text)
