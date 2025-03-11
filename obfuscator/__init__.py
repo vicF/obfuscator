@@ -9,6 +9,14 @@ import base64
 script_dir = os.path.dirname(os.path.abspath(__file__))
 SUBSTITUTIONS_FILE = os.path.join(script_dir, "substitutions.txt")
 
+SPECIAL_IPS = {
+    "127.0.0.1",
+    "0.0.0.0",
+    "192.168.1.1",
+    "255.255.255.255",
+    "8.8.8.8",  # Add more as needed
+}
+
 def load_substitutions(file_path):
     """Load substitutions from a file into a dictionary."""
     substitutions = {}
@@ -83,8 +91,13 @@ def replace_text(input_text, mapping, obfuscate=True):
     
     def ip_replacement(match):
         original_word = match.group()
+        
+        # Skip obfuscation for special IPs
+        if original_word in SPECIAL_IPS or ipaddress.ip_address(original_word).is_private:
+            return original_word
+        
         return obfuscate_ip(original_word) if obfuscate else deobfuscate_ip(original_word)
-    
+
     ip_pattern = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
     modified_text = ip_pattern.sub(ip_replacement, modified_text)
     
@@ -165,6 +178,9 @@ if __name__ == "__main__":
     # Button frame (ensures button is always visible)
     button_frame = tk.Frame(root)
     button_frame.grid(row=1, column=0, sticky="ew", pady=5)
+    # Status label to display messages
+    status_label = tk.Label(root, text="", fg="green")
+    status_label.grid(row=2, column=0, sticky="ew", pady=5)
 
     # Clear button inside the button frame
     clear_button = tk.Button(button_frame, text="Clear", command=clear_text)
