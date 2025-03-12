@@ -78,28 +78,29 @@ def deobfuscate_password(password):
 
 def replace_text(input_text, mapping, obfuscate=True):
     """Replace substrings in the input text using the given mapping and obfuscate IPs and passwords."""
+    print("Original Text:", input_text)  # Debugging line
     password_patterns = re.compile(
         r'(?i)([\w\-]*_PASSWORD|[\w\-]*_PASS|password|pass|pwd|secret|credential|key)\s*[:=]\s*(\"|\'|)([^\"\'\n]+)\2'
     )
-    
+
     def password_replacement(match):
         key, quote, original_value = match.groups()
         obfuscated_value = obfuscate_password(original_value) if obfuscate else deobfuscate_password(original_value)
         return f"{key}: {quote}{obfuscated_value}{quote}"
-    
+
     modified_text = password_patterns.sub(password_replacement, input_text)
+    print("After Password Replacement:", modified_text)  # Debugging line
     
     def ip_replacement(match):
         original_word = match.group()
-        
         # Skip obfuscation for special IPs
         if original_word in SPECIAL_IPS or ipaddress.ip_address(original_word).is_private:
             return original_word
-        
         return obfuscate_ip(original_word) if obfuscate else deobfuscate_ip(original_word)
 
     ip_pattern = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
     modified_text = ip_pattern.sub(ip_replacement, modified_text)
+    print("After IP Replacement:", modified_text)  # Debugging line
     
     result_text = modified_text
     for original, replacement in mapping.items():
@@ -115,13 +116,16 @@ def replace_text(input_text, mapping, obfuscate=True):
                 result_text = result_text[:pos] + new_substr + result_text[pos + len(original):]
                 temp_text = result_text.lower()
                 start_pos = pos + len(new_substr)
-    
+
+    print("Final Modified Text:", result_text)  # Debugging line
     return result_text
+
 
 def update_text(event, source, target, mapping, obfuscate):
     """Update the target text box based on input in the source text box."""
     input_text = source.get("1.0", tk.END).strip()
     if input_text:
+        # Replace text using the substitution mapping and obfuscate option
         modified_text = replace_text(input_text, mapping, obfuscate)
         target.delete("1.0", tk.END)
         target.insert(tk.END, modified_text)
@@ -170,10 +174,14 @@ if __name__ == "__main__":
     # Left text area
     left_text = tk.Text(text_frame, wrap="word")
     left_text.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+    left_text.bind("<KeyRelease>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
+    left_text.bind("<Control-v>", lambda event: update_text(event, left_text, right_text, SUBSTITUTIONS, True))
 
     # Right text area
     right_text = tk.Text(text_frame, wrap="word")
     right_text.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+    right_text.bind("<KeyRelease>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
+    right_text.bind("<Control-v>", lambda event: update_text(event, right_text, left_text, REVERSE_SUBSTITUTIONS, False))
 
     # Button frame (ensures button is always visible)
     button_frame = tk.Frame(root)
